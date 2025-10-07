@@ -1,0 +1,17 @@
+const float MIN_TEMPERATURE = 20.00;
+const float MAX_TEMPERATURE = 25.00;
+
+const int MEASURE_INTERVAL = 30000;
+const int DISPLAY_INTERVAL = 10000;
+const int BUTTON_DEBOUNCE = 1000;
+
+// Deep Sleep mogelijkheden
+const String DEEP_SLEEP_WAKE_UP_START = "STARTUP";
+const String DEEP_SLEEP_WAKE_UP_TIME = "DEEP SLEEP TIMER";
+const String DEEP_SLEEP_WAKE_UP_PANIC_BUTTON = "DEEP SLEEP BUTTON";
+const String DEEP_SLEEP_WAKE_UP_UNDEFINED = "DEEP SLEEP NOT DEFINED";
+
+
+/* DEBUG */
+const boolean MOCK_SWITCH = LOW;
+const float MOCK_TEMPERATURE = 20.00;
