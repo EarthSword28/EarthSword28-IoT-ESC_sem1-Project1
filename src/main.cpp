@@ -187,7 +187,7 @@ void setLed(int valueRed, int valueBlue, int valueGreen) {
 
 void activateCooler() {
   digitalWrite(RELAY_MODULE, LOW);
-  cooling = HIGH;
+  ventilator = HIGH;
 }
 
 void deactivateCooler() {
@@ -208,7 +208,7 @@ void checkTemperatureStatus(float temp) {
   else {
     setLed(200, 0, 0);
     tempHigh = HIGH;
-    ventilator = HIGH;
+    cooling = HIGH;
   }
 }
 
@@ -256,9 +256,9 @@ void loop() {
     checkTemperatureStatus(temperature);
   }
 
-  if (ventilator == HIGH) {
+  if (cooling == HIGH) {
     displayTimer = millis() + DISPLAY_INTERVAL;
-    if (tempHigh == HIGH && cooling == LOW) {
+    if (tempHigh == HIGH && ventilator == LOW) {
       activateCooler();
     }
     else if (tempHigh == LOW) {
