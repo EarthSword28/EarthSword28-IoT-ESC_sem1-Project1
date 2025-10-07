@@ -18,7 +18,7 @@
 #include <driver/rtc_io.h>
 
 #define BUTTON_PIN_BITMASK(GPIO) (1ULL << GPIO) // 2 ^ GPIO_NUMBER in hex
-#define WAKEUP_GPIO GPIO_NUM_25
+#define WAKEUP_GPIO GPIO_NUM_25                 // de knop kan de ESP uit deep sleep halen
 
 #define uS_TO_mS_FACTOR 1000              /* Conversion factor for micro seconds to milli seconds */
 #define TIME_TO_SLEEP MEASURE_INTERVAL    /* Time ESP32 will go to sleep (in seconds) */
