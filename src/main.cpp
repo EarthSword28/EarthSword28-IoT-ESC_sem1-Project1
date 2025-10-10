@@ -3,6 +3,7 @@
   Project plantbewateringsysteem (29/09/2025): ik ben teruggegaan naar mijn project plantbewateringsysteem voor Embedded Systemen basis van academiejaar 24-25 om te kijken hoe ik gebruik gemaakt heb in het verleden van de DS18B20 temperatuur sensor en voor te kijken hoe ik deep sleep gebruikte
   pin layout ESP32-E (06/10/2025): https://wiki.dfrobot.com/FireBeetle_Board_ESP32_E_SKU_DFR0654#6.%20Pinout
   aansluiten relays module (06/10/2025): https://randomnerdtutorials.com/esp32-relay-module-ac-web-server/
+  web applicatie met Random Nerd Tutorial (09/10/2025): https://randomnerdtutorials.com/esp32-web-bluetooth/
 */
 
 #include <Arduino.h>
@@ -10,6 +11,12 @@
 #include <DallasTemperature.h>
 
 #include <config.h>
+
+// Web applicatie libraries
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 // deep sleep problemen oplossen
 #include <esp_system.h>
@@ -48,6 +55,8 @@ boolean ventilator;
 boolean cooling;
 boolean tempHigh;
 
+byte manualOverrideCooler = 0;
+
 float temperature;
 
 unsigned long measureTimer = 0;
@@ -56,6 +65,55 @@ unsigned long sleepTimer = 0;
 
 unsigned long buttonDebounceTimer = 0;
 boolean buttonSwitch;
+
+// Web Applicatie
+  // Global Variables
+BLEServer* pServer = NULL;
+BLECharacteristic* pSensorCharacteristic = NULL;
+BLECharacteristic* pCoolerCharacteristic = NULL;
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+uint32_t value = 0;
+
+  // UUIDs
+#define SERVICE_UUID        "743770a3-61e9-4edb-9291-dbd476f484d8"
+#define SENSOR_CHARACTERISTIC_UUID "0f5bf109-7f09-4954-a0a3-5ec26d4da9a5"
+#define COOLER_CHARACTERISTIC_UUID "689dffc1-9faa-4139-9004-e47b914b78ed"
+
+  // classen
+class MyServerCallbacks: public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    deviceConnected = true;
+  };
+
+  void onDisconnect(BLEServer* pServer) {
+    deviceConnected = false;
+  }
+};
+
+class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pCoolerCharacteristic) {
+    // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
+    std::string coolerValue  = pCoolerCharacteristic->getValue(); 
+    String value = String(coolerValue.c_str());
+
+    if (value.length() > 0) {
+      Serial.print("Characteristic event, written: ");
+      Serial.println(static_cast<int>(value[0])); // Print the integer value
+
+      int receivedValue = static_cast<int>(value[0]);
+      if (receivedValue == 1) {
+        manualOverrideCooler = 1;
+      } 
+      else if (receivedValue == 2) {
+        manualOverrideCooler = 2;
+      }
+      else {
+        manualOverrideCooler = 0;
+      }
+    }
+  }
+};
 
 /*
 Method to print the reason by which ESP32
@@ -218,6 +276,53 @@ void button() {
   dataRedSwitch = LOW;
 }
 
+// setup voor de BLE funcionaliteit (code vrijwel direct afkomstig van Random Nerd Tutorial over het onderwerp)
+void setupBLE() {
+  // Create the BLE Device
+  BLEDevice::init("ESP32-E-Jorden");
+
+  // Create the BLE Server
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  // Create a BLE Characteristic
+  pSensorCharacteristic = pService->createCharacteristic(
+                      SENSOR_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_READ   |
+                      BLECharacteristic::PROPERTY_WRITE  |
+                      BLECharacteristic::PROPERTY_NOTIFY |
+                      BLECharacteristic::PROPERTY_INDICATE
+                    );
+
+  // Create the Cooler button Characteristic
+  pCoolerCharacteristic = pService->createCharacteristic(
+                      COOLER_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
+
+  // Register the callback for the Cooler button characteristic
+  pCoolerCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
+
+  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+  // Create a BLE Descriptor
+  pSensorCharacteristic->addDescriptor(new BLE2902());
+  pCoolerCharacteristic->addDescriptor(new BLE2902());
+
+  // Start the service
+  pService->start();
+
+  // Start advertising
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  BLEDevice::startAdvertising();
+  Serial.println("Waiting a client connection to notify...");
+}
+
 void setup() {
   pinMode(ONE_WIRE_BUS, INPUT);
   pinMode(LED_RED, OUTPUT);
@@ -227,7 +332,7 @@ void setup() {
   pinMode(RELAY_MODULE, OUTPUT);
 
   digitalWrite(RELAY_MODULE, HIGH);
-  Serial.begin(9600);
+  Serial.begin(115200);
   temperature = -100.00;
   ventilator = LOW;
   cooling = LOW;
@@ -245,6 +350,9 @@ void setup() {
 
   // Start up the sensor library
   sensors.begin(); 
+
+  // activeer de BlueTooth functionaliteit
+  setupBLE();
 }
 
 void loop() {
