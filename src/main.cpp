@@ -4,6 +4,8 @@
   pin layout ESP32-E (06/10/2025): https://wiki.dfrobot.com/FireBeetle_Board_ESP32_E_SKU_DFR0654#6.%20Pinout
   aansluiten relays module (06/10/2025): https://randomnerdtutorials.com/esp32-relay-module-ac-web-server/
   web applicatie met Random Nerd Tutorial (09/10/2025): https://randomnerdtutorials.com/esp32-web-bluetooth/
+  JavaScript voor de Web BLE Application (11/10/2025): https://www.w3schools.com/js/default.asp 
+  information about classes in C++ (11/10/2025): https://www.w3schools.com/cpp/cpp_class_methods.asp
 */
 
 #include <Arduino.h>
@@ -32,6 +34,7 @@
 
 RTC_DATA_ATTR int bootCount = 0;
 
+boolean deepSleepPermission;
 boolean dataRedSwitch;
 String deepSleepWakeUpReason = "";
 
@@ -66,19 +69,26 @@ unsigned long sleepTimer = 0;
 unsigned long buttonDebounceTimer = 0;
 boolean buttonSwitch;
 
-// Web Applicatie
+// BLE Applicatie
   // Global Variables
 BLEServer* pServer = NULL;
 BLECharacteristic* pSensorCharacteristic = NULL;
 BLECharacteristic* pCoolerCharacteristic = NULL;
+BLECharacteristic* pDeepSleepCharacteristic = NULL;
+BLECharacteristic* pMeasureCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 uint32_t value = 0;
+
+unsigned long disconnectedDelayTimerBLE = 0;
+boolean disconnectedSwitchBLE;
 
   // UUIDs
 #define SERVICE_UUID        "743770a3-61e9-4edb-9291-dbd476f484d8"
 #define SENSOR_CHARACTERISTIC_UUID "0f5bf109-7f09-4954-a0a3-5ec26d4da9a5"
 #define COOLER_CHARACTERISTIC_UUID "689dffc1-9faa-4139-9004-e47b914b78ed"
+#define DEEP_SLEEP_CHARACTERISTIC_UUID "1a2b1de3-a861-4415-9ce4-be5a5fbf4bc7"
+#define MEASURE_CHARACTERISTIC_UUID "8f6e0141-d448-4bf1-8c04-f4ce063ba865"
 
   // classen
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -104,6 +114,7 @@ class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
       int receivedValue = static_cast<int>(value[0]);
       if (receivedValue == 1) {
         manualOverrideCooler = 1;
+        cooling = HIGH;
       } 
       else if (receivedValue == 2) {
         manualOverrideCooler = 2;
@@ -112,6 +123,33 @@ class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
         manualOverrideCooler = 0;
       }
     }
+  }
+};
+
+class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pDeepSleepCharacteristic) {
+    // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
+    std::string deepSleepValue  = pDeepSleepCharacteristic->getValue(); 
+    String value = String(deepSleepValue.c_str());
+
+    if (value.length() > 0) {
+      Serial.print("Characteristic event, written: ");
+      Serial.println(static_cast<int>(value[0])); // Print the integer value
+
+      int receivedValue = static_cast<int>(value[0]);
+      if (receivedValue == 1) {
+        deepSleepPermission = HIGH;
+      } 
+      else {
+        deepSleepPermission = LOW;
+      }
+    }
+  }
+};
+
+class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pMeasureCharacteristic) {
+    dataRedSwitch = LOW;
   }
 };
 
@@ -199,7 +237,7 @@ void configureDeepSleep() {
   rtc_gpio_pulldown_en(WAKEUP_GPIO);
 }
 
-void sendData(float valueTemp, float realTemp = 0.0) {
+void printData(float valueTemp, float realTemp = 0.0) {
   Serial.print("bootCount: ");
   Serial.print(bootCount);
   Serial.print(" | Temperature: ");
@@ -212,6 +250,18 @@ void sendData(float valueTemp, float realTemp = 0.0) {
 
   Serial.println("°C");
   Serial.println("--------");
+}
+
+void sendData(float valueTemp, float realTemp = 0.0) {
+  String tempString = String(valueTemp);
+  if (MOCK_SWITCH == HIGH) {
+    tempString = "Mock temperature: " + tempString + "°C | Real Temperature: " + String(realTemp);
+  }
+
+  if (deviceConnected) {
+    pSensorCharacteristic->setValue(tempString.c_str());
+    pSensorCharacteristic->notify();
+  }
 }
 
 float readTemperature() {
@@ -244,14 +294,18 @@ void setLed(int valueRed, int valueBlue, int valueGreen) {
 }
 
 void activateCooler() {
-  digitalWrite(RELAY_MODULE, LOW);
-  ventilator = HIGH;
+  if (manualOverrideCooler != 2) {
+    digitalWrite(RELAY_MODULE, LOW);
+    ventilator = HIGH;
+  }
 }
 
 void deactivateCooler() {
-  digitalWrite(RELAY_MODULE, HIGH);
-  cooling = LOW;
-  ventilator = LOW;
+  if (manualOverrideCooler != 1) {
+    digitalWrite(RELAY_MODULE, HIGH);
+    cooling = LOW;
+    ventilator = LOW;
+  }
 }
 
 void checkTemperatureStatus(float temp) {
@@ -306,6 +360,24 @@ void setupBLE() {
   // Register the callback for the Cooler button characteristic
   pCoolerCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
 
+  // Create the Deep Sleep button Characteristic
+  pDeepSleepCharacteristic = pService->createCharacteristic(
+                      DEEP_SLEEP_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
+
+  // Register the callback for the Cooler button characteristic
+  pDeepSleepCharacteristic->setCallbacks(new DeepSleepCharacteristicCallbacks());
+
+  // Create the Measurement button Characteristic
+  pMeasureCharacteristic = pService->createCharacteristic(
+                      MEASURE_CHARACTERISTIC_UUID,
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
+
+  // Register the callback for the measure button characteristic
+  pMeasureCharacteristic->setCallbacks(new MeasureCharacteristicCallbacks());
+
   // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
   // Create a BLE Descriptor
   pSensorCharacteristic->addDescriptor(new BLE2902());
@@ -323,6 +395,27 @@ void setupBLE() {
   Serial.println("Waiting a client connection to notify...");
 }
 
+void disconnectBLE(boolean delayFunction) {
+  // if function to give the bluetooth stack the chance to get things ready
+  if (delayFunction == LOW) {
+    Serial.println("Device disconnected.");
+    disconnectedDelayTimerBLE = millis() + DISCONNECTED_BLE_DELAY;
+  }
+  else {
+    pServer->startAdvertising(); // restart advertising
+    Serial.println("Start advertising");
+    oldDeviceConnected = deviceConnected;
+    disconnectedSwitchBLE = LOW;
+  }
+}
+
+void connectBLE() {
+  // do stuff here on connecting
+  oldDeviceConnected = deviceConnected;
+  Serial.println("Device Connected");
+  dataRedSwitch = LOW;
+}
+
 void setup() {
   pinMode(ONE_WIRE_BUS, INPUT);
   pinMode(LED_RED, OUTPUT);
@@ -334,6 +427,7 @@ void setup() {
   digitalWrite(RELAY_MODULE, HIGH);
   Serial.begin(115200);
   temperature = -100.00;
+  deepSleepPermission = HIGH;
   ventilator = LOW;
   cooling = LOW;
   tempHigh = LOW;
@@ -353,6 +447,8 @@ void setup() {
 
   // activeer de BlueTooth functionaliteit
   setupBLE();
+
+  disconnectedSwitchBLE = LOW;
 }
 
 void loop() {
@@ -366,17 +462,17 @@ void loop() {
 
   if (cooling == HIGH) {
     displayTimer = millis() + DISPLAY_INTERVAL;
-    if (tempHigh == HIGH && ventilator == LOW) {
+    if (manualOverrideCooler == 1 || (tempHigh == HIGH && ventilator == LOW)) {
       activateCooler();
     }
-    else if (tempHigh == LOW) {
+    else if (tempHigh == LOW || manualOverrideCooler == 2) {
       deactivateCooler();
     }
     if (currentMillis >= measureTimer) {
       dataRedSwitch = LOW;
     }
   }
-  else if (currentMillis >= displayTimer) {
+  else if (deepSleepPermission == HIGH && currentMillis >= displayTimer) {
     activate_deep_sleep();
   }
 
@@ -385,5 +481,20 @@ void loop() {
   }
   else if (digitalRead(BUTTON) == HIGH) {
     button();
+  }
+
+  // disconnecting
+  if (!deviceConnected && oldDeviceConnected) {
+    if (disconnectedSwitchBLE == LOW) {
+      disconnectedSwitchBLE = HIGH;
+      disconnectBLE(LOW);
+    }
+    else if (currentMillis >= disconnectedDelayTimerBLE) {
+      disconnectBLE(HIGH);
+    }
+  }
+  // connecting
+  if (deviceConnected && !oldDeviceConnected) {
+    connectBLE();
   }
 }

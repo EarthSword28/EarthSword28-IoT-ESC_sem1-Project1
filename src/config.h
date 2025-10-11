@@ -4,6 +4,7 @@ const float MAX_TEMPERATURE = 25.00;
 const int MEASURE_INTERVAL = 30000;
 const int DISPLAY_INTERVAL = 10000;
 const int BUTTON_DEBOUNCE = 1000;
+const int DISCONNECTED_BLE_DELAY = 500;
 
 // Deep Sleep mogelijkheden
 const String DEEP_SLEEP_WAKE_UP_START = "STARTUP";
