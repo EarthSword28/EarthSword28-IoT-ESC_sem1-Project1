@@ -90,7 +90,8 @@ boolean disconnectedSwitchBLE;
 #define DEEP_SLEEP_CHARACTERISTIC_UUID "1a2b1de3-a861-4415-9ce4-be5a5fbf4bc7"
 #define MEASURE_CHARACTERISTIC_UUID "8f6e0141-d448-4bf1-8c04-f4ce063ba865"
 
-  // classen
+// CLASSES
+  // Device connection and disconnection
 class MyServerCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
@@ -101,7 +102,8 @@ class MyServerCallbacks: public BLEServerCallbacks {
   }
 };
 
-class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
+  // lees de characteristics van de cooler op de web app wanneer deze doorgestuurd worden
+class CoolerCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCoolerCharacteristic) {
     // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
     std::string coolerValue  = pCoolerCharacteristic->getValue(); 
@@ -126,6 +128,7 @@ class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+  // lees de characteristics van de Deep Sleep Status op de web app wanneer deze doorgestuurd worden
 class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pDeepSleepCharacteristic) {
     // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
@@ -147,6 +150,7 @@ class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+  // voer een meting uit wanneer dit word gevraagd via de web app
 class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pMeasureCharacteristic) {
     dataRedSwitch = LOW;
@@ -237,21 +241,25 @@ void configureDeepSleep() {
   rtc_gpio_pulldown_en(WAKEUP_GPIO);
 }
 
+// prinde de data op het debug scherm
 void printData(float valueTemp, float realTemp = 0.0) {
-  Serial.print("bootCount: ");
-  Serial.print(bootCount);
-  Serial.print(" | Temperature: ");
-  Serial.print(valueTemp);
+  if (DEBUG_SCREEN == HIGH) {
+    Serial.print("bootCount: ");
+    Serial.print(bootCount);
+    Serial.print(" | Temperature: ");
+    Serial.print(valueTemp);
 
-  if (MOCK_SWITCH == HIGH) {
-    Serial.print("°C | Real Temperature: ");
-    Serial.print(realTemp);
+    if (MOCK_SWITCH == HIGH) {
+      Serial.print("°C | Real Temperature: ");
+      Serial.print(realTemp);
+    }
+
+    Serial.println("°C");
+    Serial.println("--------");
   }
-
-  Serial.println("°C");
-  Serial.println("--------");
 }
 
+// stuur de data door naar de web app
 void sendData(float valueTemp, float realTemp = 0.0) {
   String tempString = String(valueTemp);
   if (MOCK_SWITCH == HIGH) {
@@ -276,10 +284,12 @@ float readTemperature() {
 
   if (MOCK_SWITCH == LOW) {
     sendData(temp);
+    printData(temp);
     return temp;
   }
   else {
     sendData(MOCK_TEMPERATURE, temp);
+    printData(MOCK_TEMPERATURE, temp);
     return MOCK_TEMPERATURE;
   }
 }
@@ -310,14 +320,17 @@ void deactivateCooler() {
 
 void checkTemperatureStatus(float temp) {
   if (temp < MIN_TEMPERATURE) {
+    // kleur de RGB LED Blauw
     setLed(0, 200, 0);
     tempHigh = LOW;
   }
   else if (temp < MAX_TEMPERATURE) {
+    // kleur de RGB LED Groen
     setLed(0, 0, 200);
     tempHigh = LOW;
   }
   else {
+    // Kleur de RGB LED ROOD
     setLed(200, 0, 0);
     tempHigh = HIGH;
     cooling = HIGH;
@@ -330,7 +343,7 @@ void button() {
   dataRedSwitch = LOW;
 }
 
-// setup voor de BLE funcionaliteit (code vrijwel direct afkomstig van Random Nerd Tutorial over het onderwerp)
+// setup voor de BLE funcionaliteit (code vrijwel direct afkomstig van Random Nerd Tutorial over het onderwerp, zie bronnen)
 void setupBLE() {
   // Create the BLE Device
   BLEDevice::init("ESP32-E-Jorden");
@@ -358,7 +371,7 @@ void setupBLE() {
                     );
 
   // Register the callback for the Cooler button characteristic
-  pCoolerCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
+  pCoolerCharacteristic->setCallbacks(new CoolerCharacteristicCallbacks());
 
   // Create the Deep Sleep button Characteristic
   pDeepSleepCharacteristic = pService->createCharacteristic(
@@ -454,12 +467,14 @@ void setup() {
 void loop() {
   long currentMillis = millis();
 
+  // logica voor het uitlezen van de data
   if (dataRedSwitch == LOW) {
     dataRedSwitch = HIGH;
     temperature = readTemperature();
     checkTemperatureStatus(temperature);
   }
 
+  // logica voor het besturen van de ventilator
   if (cooling == HIGH) {
     displayTimer = millis() + DISPLAY_INTERVAL;
     if (manualOverrideCooler == 1 || (tempHigh == HIGH && ventilator == LOW)) {
@@ -476,6 +491,7 @@ void loop() {
     activate_deep_sleep();
   }
 
+  // logica voor het afhandellen van de knop
   if (buttonSwitch == HIGH && currentMillis >= buttonDebounceTimer) {
     buttonSwitch = LOW;
   }

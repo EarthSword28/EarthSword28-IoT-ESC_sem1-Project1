@@ -14,5 +14,6 @@ const String DEEP_SLEEP_WAKE_UP_UNDEFINED = "DEEP SLEEP NOT DEFINED";
 
 
 /* DEBUG */
+const boolean DEBUG_SCREEN = HIGH;
 const boolean MOCK_SWITCH = LOW;
 const float MOCK_TEMPERATURE = 20.00;
