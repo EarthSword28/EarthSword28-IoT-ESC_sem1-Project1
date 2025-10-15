@@ -395,6 +395,8 @@ void setupBLE() {
   // Create a BLE Descriptor
   pSensorCharacteristic->addDescriptor(new BLE2902());
   pCoolerCharacteristic->addDescriptor(new BLE2902());
+  pDeepSleepCharacteristic->addDescriptor(new BLE2902());
+  pMeasureCharacteristic->addDescriptor(new BLE2902());
 
   // Start the service
   pService->start();
