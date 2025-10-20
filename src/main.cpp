@@ -13,6 +13,7 @@
 #include <DallasTemperature.h>
 
 #include <config.h>
+#include <security.h>
 
 // Web applicatie libraries
 #include <BLEDevice.h>
