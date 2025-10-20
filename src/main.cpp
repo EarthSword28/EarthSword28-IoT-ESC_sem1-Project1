@@ -34,7 +34,7 @@
 
 RTC_DATA_ATTR int bootCount = 0;
 
-boolean deepSleepPermission;
+boolean deepSleepPermission;        // will deep sleep be activated after a while
 boolean dataRedSwitch;
 String deepSleepWakeUpReason = "";
 
@@ -442,7 +442,7 @@ void setup() {
   digitalWrite(RELAY_MODULE, HIGH);
   Serial.begin(115200);
   temperature = -100.00;
-  deepSleepPermission = HIGH;
+  deepSleepPermission = LOW;
   ventilator = LOW;
   cooling = LOW;
   tempHigh = LOW;
