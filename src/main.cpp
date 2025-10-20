@@ -37,7 +37,7 @@ RTC_DATA_ATTR int bootCount = 0;
 
 boolean deepSleepPermission;        // will deep sleep be activated after a while
 boolean dataRedSwitch;              // boolean for tracking if the sensor has been read out yet
-String deepSleepWakeUpReason = "";
+String deepSleepWakeUpReason = "";  // the reason the ESP woke up
 
 #define ONE_WIRE_BUS 4  // temperatuur sensor
 
