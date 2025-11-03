@@ -5,12 +5,13 @@
 
 #include <WiFi.h>
 
-int wifiAmounts_PL = 0;
-char *knownWifiSsid_PL[10] = {"", "", "", "", "", "", "", "", "", ""};
-char *knownWifiPassword_PL[10] = {"", "", "", "", "", "", "", "", "", ""};
-int wifiAttemps_PL = 5;
-int wifiDelay_PL = 500;
+int wifiAmounts_PL = 0;   // the amount of known WiFi networks
+char *knownWifiSsid_PL[10] = {"", "", "", "", "", "", "", "", "", ""};      // the known WiFi networks
+char *knownWifiPassword_PL[10] = {"", "", "", "", "", "", "", "", "", ""};  // the passwords for the known WiFi networks
+int wifiAttemps_PL = 5;   // amount of allowed attemps for device to connect to WiFi
+int wifiDelay_PL = 500;   // how much time between attemps
 
+// Initiate the WiFi Personal Library
 void wifiInit(int wifiAmounts_i_PL, char *knownWifiSsid_i_PL[], char *knownWifiPassword_i_PL[], int wifiAttemps_i_PL = 5, int wifiDelay_i_PL = 500) {
   wifiAmounts_PL = wifiAmounts_i_PL;
   if (wifiAmounts_PL > 0) {
@@ -29,6 +30,7 @@ void wifiInit(int wifiAmounts_i_PL, char *knownWifiSsid_i_PL[], char *knownWifiP
   }
 }
 
+// Connect to a known WiFi network
 void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
   WiFi.mode(wifiMode_PL);
   int networks = WiFi.scanNetworks();
@@ -61,6 +63,7 @@ void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
   }
 }
 
+// Get the status of the WiFi connection
 void getWifiStatus() {
   wl_status_t status = WiFi.status();
   if (status == WL_CONNECTED) {
