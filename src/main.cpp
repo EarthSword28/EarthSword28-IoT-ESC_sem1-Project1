@@ -15,7 +15,7 @@
 #include <config.h>
 #include <security.h>
 
-#include <wifiConnect.h>
+#include <wifiPersonalLibrary.h>
 
 // WiFi
 #include <WiFi.h>
