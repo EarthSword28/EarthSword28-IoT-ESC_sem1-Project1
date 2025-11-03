@@ -15,6 +15,11 @@
 #include <config.h>
 #include <security.h>
 
+#include <wifiConnect.h>
+
+// WiFi
+#include <WiFi.h>
+
 // Web applicatie libraries
 #include <BLEDevice.h>
 #include <BLEServer.h>
