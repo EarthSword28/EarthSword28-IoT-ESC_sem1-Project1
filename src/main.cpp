@@ -33,7 +33,7 @@
 #include <driver/rtc_io.h>
 
 #define BUTTON_PIN_BITMASK(GPIO) (1ULL << GPIO) // 2 ^ GPIO_NUMBER in hex
-#define WAKEUP_GPIO GPIO_NUM_25                 // de knop kan de ESP uit deep sleep halen
+#define WAKEUP_GPIO GPIO_NUM_25                 // The button can get the ESP out of Deep Sleep
 
 #define uS_TO_mS_FACTOR 1000              /* Conversion factor for micro seconds to milli seconds */
 #define TIME_TO_SLEEP MEASURE_INTERVAL    /* Time ESP32 will go to sleep (in seconds) */
@@ -44,6 +44,7 @@ boolean deepSleepPermission;        // will deep sleep be activated after a whil
 boolean dataRedSwitch;              // boolean for tracking if the sensor has been read out yet
 String deepSleepWakeUpReason = "";  // the reason the ESP woke up
 
+// Define used Pins
 #define ONE_WIRE_BUS 4  // temperatuur sensor
 
 #define LED_RED 14
@@ -101,7 +102,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
   }
 };
 
-  // lees de characteristics van de cooler op de web app wanneer deze doorgestuurd worden
+  // read the characteristics from the cooler on the web app off when they get sent
 class CoolerCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCoolerCharacteristic) {
     // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
@@ -127,7 +128,7 @@ class CoolerCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-  // lees de characteristics van de Deep Sleep Status op de web app wanneer deze doorgestuurd worden
+  // read the characteristics from the Deep Sleep Status on the web app off when they get sent
 class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pDeepSleepCharacteristic) {
     // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
@@ -149,7 +150,7 @@ class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-  // voer een meting uit wanneer dit word gevraagd via de web app
+  // execute a measurement when this is requested via the web app
 class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pMeasureCharacteristic) {
     dataRedSwitch = LOW;
@@ -240,7 +241,7 @@ void configureDeepSleep() {
   rtc_gpio_pulldown_en(WAKEUP_GPIO);
 }
 
-// prinde de data op het debug scherm
+// print the data on the debug screen
 void printData(float valueTemp, float realTemp = 0.0) {
   if (DEBUG_SCREEN == HIGH) {
     Serial.print("bootCount: ");
@@ -258,7 +259,7 @@ void printData(float valueTemp, float realTemp = 0.0) {
   }
 }
 
-// stuur de data door naar de web app
+// send the data to the web app
 void sendData(float valueTemp, float realTemp = 0.0) {
   String tempString = String(valueTemp);
   if (MOCK_SWITCH == HIGH) {
@@ -294,7 +295,7 @@ float readTemperature() {
 }
 
 /*
-configureer de kleur van de RGB LED
+configure the color of the RGB LED
 */
 void setLed(int valueRed, int valueBlue, int valueGreen) {
   analogWrite(LED_RED, (255 - valueRed));
@@ -319,17 +320,17 @@ void deactivateCooler() {
 
 void checkTemperatureStatus(float temp) {
   if (temp < MIN_TEMPERATURE) {
-    // kleur de RGB LED Blauw
+    // Color the RGB LED Blue
     setLed(0, 200, 0);
     tempHigh = LOW;
   }
   else if (temp < MAX_TEMPERATURE) {
-    // kleur de RGB LED Groen
+    // Color the RGB LED Green
     setLed(0, 0, 200);
     tempHigh = LOW;
   }
   else {
-    // Kleur de RGB LED ROOD
+    // Color the RGB LED Red
     setLed(200, 0, 0);
     tempHigh = HIGH;
     cooling = HIGH;
@@ -342,7 +343,7 @@ void button() {
   dataRedSwitch = LOW;
 }
 
-// setup voor de BLE funcionaliteit (code vrijwel direct afkomstig van Random Nerd Tutorial over het onderwerp, zie bronnen)
+// setup for the BLE functionality (code almost directly originating from the Random Nerd Tutorial about the subject, see sources)
 void setupBLE() {
   // Create the BLE Device
   BLEDevice::init("ESP32-E-Jorden");
@@ -463,19 +464,23 @@ void setup() {
   setupBLE();
 
   disconnectedSwitchBLE = LOW;
+
+  // WiFi
+  wifiInit(KNOWN_WIFI_AMOUNT, KNOWN_WIFI_SSIDs, KNOWN_WIFI_PASSWORDs, WIFI_CONNECT_ATTEMPS, WIFI_CONNECT_DELAY);
+  wifiConnect();
 }
 
 void loop() {
   long currentMillis = millis();
 
-  // logica voor het uitlezen van de data
+  // logica for the reading of the data
   if (dataRedSwitch == LOW) {
     dataRedSwitch = HIGH;
     temperature = readTemperature();
     checkTemperatureStatus(temperature);
   }
 
-  // logica voor het besturen van de ventilator
+  // logica for controling the ventilator
   if (cooling == HIGH) {
     displayTimer = millis() + DISPLAY_INTERVAL;
     if (manualOverrideCooler == 1 || (tempHigh == HIGH && ventilator == LOW)) {
@@ -492,7 +497,7 @@ void loop() {
     activate_deep_sleep();
   }
 
-  // logica voor het afhandellen van de knop
+  // logica for the Button input
   if (buttonSwitch == HIGH && currentMillis >= buttonDebounceTimer) {
     buttonSwitch = LOW;
   }
@@ -500,7 +505,8 @@ void loop() {
     button();
   }
 
-  // disconnecting
+  // BLE
+    // disconnecting
   if (!deviceConnected && oldDeviceConnected) {
     if (disconnectedSwitchBLE == LOW) {
       disconnectedSwitchBLE = HIGH;
@@ -510,7 +516,7 @@ void loop() {
       disconnectBLE(HIGH);
     }
   }
-  // connecting
+    // connecting
   if (deviceConnected && !oldDeviceConnected) {
     connectBLE();
   }

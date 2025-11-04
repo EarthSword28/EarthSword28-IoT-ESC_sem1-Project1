@@ -50,7 +50,7 @@ void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
             Serial.print(".");
           }
           if (WiFi.status() == WL_CONNECTED) {
-            Serial.println("\nVerbonden met WiFi!");
+            Serial.println("\nConnected to WiFi!");
             Serial.println(WiFi.localIP());
           }
           else {
@@ -87,8 +87,16 @@ void onGotIP(WiFiEvent_t event, WiFiEventInfo_t info){
 }
 
 void onDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
-  Serial.println("WiFi verbroken, opnieuw verbinden...");
+  Serial.println("WiFi Disconnected, Attempting to Reconnect...");
   WiFi.reconnect();
+  delay(wifiDelay_PL);
+  wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED) {
+    Serial.println("Reconnected");
+  }
+  else {
+    Serial.println("Connection Failed");
+  }
 }
 
 /* void WiFiEvent(WiFiEvent_t event) {
