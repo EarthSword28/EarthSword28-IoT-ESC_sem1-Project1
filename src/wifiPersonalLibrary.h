@@ -67,6 +67,9 @@ void wifiConnect(const char* wifiHostName_PL = "", wifi_mode_t wifiMode_PL = WIF
       }
     }
   }
+  else {
+    Serial.println("No networks found");
+  }
 }
 
 // Get the status of the WiFi connection
