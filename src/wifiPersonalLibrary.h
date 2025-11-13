@@ -31,7 +31,7 @@ void wifiInit(int wifiAmounts_i_PL, char *knownWifiSsid_i_PL[], char *knownWifiP
 }
 
 // Connect to a known WiFi network
-void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
+void wifiConnect(const char* wifiHostName_PL = "", wifi_mode_t wifiMode_PL = WIFI_STA) {
   WiFi.mode(wifiMode_PL);
   int networks = WiFi.scanNetworks();
   if (networks > 0) {
@@ -39,6 +39,11 @@ void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
       String ssid = WiFi.SSID(n);
       for (int i = 0; i < wifiAmounts_PL; i++) {
         if (ssid == knownWifiSsid_PL[i]) {
+          // if hostname, set hostname
+          if (wifiHostName_PL != "") {
+            WiFi.setHostname(wifiHostName_PL);
+          }
+          // connect to WiFi
           String password = knownWifiPassword_PL[i];
           int connectAttemps = 0;
           WiFi.begin(ssid, password);
@@ -52,11 +57,12 @@ void wifiConnect(wifi_mode_t wifiMode_PL = WIFI_STA) {
           if (WiFi.status() == WL_CONNECTED) {
             Serial.println("\nConnected to WiFi!");
             Serial.println(WiFi.localIP());
+            break;
           }
           else {
             Serial.println("\nConnection Failed");
+            continue;
           }
-          break;
         }
       }
     }

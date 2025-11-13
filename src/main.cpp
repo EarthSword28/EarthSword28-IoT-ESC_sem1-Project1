@@ -467,7 +467,7 @@ void setup() {
 
   // WiFi
   wifiInit(KNOWN_WIFI_AMOUNT, KNOWN_WIFI_SSIDs, KNOWN_WIFI_PASSWORDs, WIFI_CONNECT_ATTEMPS, WIFI_CONNECT_DELAY);
-  wifiConnect();
+  wifiConnect(WIFI_HOST_NAME);
 }
 
 void loop() {
