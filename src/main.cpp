@@ -281,6 +281,8 @@ void sendData(float valueTemp, float realTemp = 0.0) {
     pSensorCharacteristic->setValue(tempString.c_str());
     pSensorCharacteristic->notify();
   }
+
+  mqttPublish(MQTT_PUB_TEMP, tempString);
 }
 
 float readTemperature() {
@@ -442,6 +444,24 @@ void connectBLE() {
   dataRedSwitch = LOW;
 }
 
+void mqttCoolerButton(char *payload) {
+  if (strcmp(payload, "ON") == 0) {
+    manualOverrideCooler = 1;
+  }
+  else if (strcmp(payload, "OFF") == 0) {
+    manualOverrideCooler = 2;
+  }
+  else if (strcmp(payload, "AUTO") == 0) {
+    manualOverrideCooler = 3;
+  }
+}
+
+void mqttEventHandler(int eventcode, char *eventMessage) {
+  if (eventcode == 1) {
+    mqttCoolerButton(eventMessage);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -535,5 +555,9 @@ void loop() {
     // connecting
   if (deviceConnected && !oldDeviceConnected) {
     connectBLE();
+  }
+
+  if (mqttEventCode != 0) {
+    mqttEventHandler(mqttEventCode, mqttEventMessage);
   }
 }
