@@ -13,6 +13,12 @@ const int WIFI_CONNECT_DELAY = 500;   // Time between connection Attemps
 // MQTT
 const int MQTT_RECONNECT_TIMER = 2000;
 
+  // MQTT Topics
+const int MQTT_LISTEN_COUNT = 2;
+#define MQTT_PUB_TEMP "esp/output/temp"
+#define MQTT_SUB_COOLER "esp/input/cooler"
+#define MQTT_SUB_MEASURE "esp/input/measure"
+
 // Deep Sleep
 const boolean DEEP_SLEEP_DEFAULT_PERMISSION = LOW;
 
