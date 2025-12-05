@@ -23,10 +23,6 @@ void activateCooler();
 void deactivateCooler();
 void checkTemperatureStatus(float temp);
 void button();
-// BlueTooth
-void setupBLE();
-void disconnectBLE(boolean delayFunction);
-void connectBLE();
 // MQTT
 void onMqttConnect(bool sessionPresent);
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason);

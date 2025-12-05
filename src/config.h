@@ -24,8 +24,8 @@ const int MQTT_RECONNECT_TIMER = 2000;
 
 /* DEBUG */
 const boolean DEBUG_SCREEN = HIGH;
-const boolean MOCK_SWITCH = LOW;
-const float MOCK_TEMPERATURE = 20.00;
+const boolean MOCK_SWITCH = HIGH;
+const float MOCK_TEMPERATURE = 26.00;
 
   // UUIDs
 #define SERVICE_UUID        "743770a3-61e9-4edb-9291-dbd476f484d8"

@@ -23,12 +23,6 @@
 // WiFi
 #include <WiFi.h>
 
-// Web applicatie libraries
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-
 // MQTT libraries
 extern "C" {
 	#include "freertos/FreeRTOS.h"
@@ -70,98 +64,26 @@ unsigned long sleepTimer = 0;
 unsigned long buttonDebounceTimer = 0;
 boolean buttonSwitch;
 
-// BLE Applicatie
-  // Global Variables
-BLEServer* pServer = NULL;
-BLECharacteristic* pSensorCharacteristic = NULL;
-BLECharacteristic* pCoolerCharacteristic = NULL;
-BLECharacteristic* pDeepSleepCharacteristic = NULL;
-BLECharacteristic* pMeasureCharacteristic = NULL;
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
-uint32_t value = 0;
-
-unsigned long disconnectedDelayTimerBLE = 0;
-boolean disconnectedSwitchBLE;
-
 // MQTT
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
 
-// CLASSES
-  // Device connection and disconnection
-class MyServerCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
-  };
-
-  void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-  }
-};
-
-  // read the characteristics from the cooler on the web app off when they get sent
-class CoolerCharacteristicCallbacks : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* pCoolerCharacteristic) {
-    // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
-    std::string coolerValue  = pCoolerCharacteristic->getValue(); 
-    String value = String(coolerValue.c_str());
-
-    if (value.length() > 0) {
-      Serial.print("Characteristic event, written: ");
-      Serial.println(static_cast<int>(value[0])); // Print the integer value
-
-      int receivedValue = static_cast<int>(value[0]);
-      if (receivedValue == 1) {
-        manualOverrideCooler = 1;
-        cooling = HIGH;
-      } 
-      else if (receivedValue == 2) {
-        manualOverrideCooler = 2;
-      }
-      else {
-        manualOverrideCooler = 0;
-      }
-    }
-  }
-};
-
-  // execute a measurement when this is requested via the web app
-class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* pMeasureCharacteristic) {
-    dataRedSwitch = LOW;
-  }
-};
-
-// print the data on the debug screen
-void printData(float valueTemp, float realTemp) {
-  if (DEBUG_SCREEN == HIGH) {
-    Serial.print("Temperature: ");
-    Serial.print(valueTemp);
-
-    if (MOCK_SWITCH == HIGH) {
-      Serial.print("°C | Real Temperature: ");
-      Serial.print(realTemp);
-    }
-
-    Serial.println("°C");
-    Serial.println("--------");
-  }
-}
-
 // send the data to the web app
 void sendData(float valueTemp, float realTemp) {
+  String tempString = String(valueTemp);
+  // if (MOCK_SWITCH == HIGH) {
+  //   tempString = "Mock temperature: " + tempString + "°C | Real Temperature: " + String(realTemp);
+  // }
+
+  mqttPublish(MQTT_PUB_TEMP, tempString);
+}
+
+void printData(float valueTemp, float realTemp) {
   String tempString = String(valueTemp);
   if (MOCK_SWITCH == HIGH) {
     tempString = "Mock temperature: " + tempString + "°C | Real Temperature: " + String(realTemp);
   }
-
-  if (deviceConnected) {
-    pSensorCharacteristic->setValue(tempString.c_str());
-    pSensorCharacteristic->notify();
-  }
-
-  mqttPublish(MQTT_PUB_TEMP, tempString);
+  Serial.println(tempString);
 }
 
 float readTemperature() {
@@ -199,6 +121,7 @@ void activateCooler() {
   if (manualOverrideCooler != 2) {
     digitalWrite(RELAY_MODULE, LOW);
     ventilator = HIGH;
+    Serial.println("cooler on");
   }
 }
 
@@ -207,6 +130,7 @@ void deactivateCooler() {
     digitalWrite(RELAY_MODULE, HIGH);
     cooling = LOW;
     ventilator = LOW;
+    Serial.println("cooler off");
   }
 }
 
@@ -232,90 +156,6 @@ void checkTemperatureStatus(float temp) {
 void button() {
   buttonSwitch = HIGH;
   buttonDebounceTimer = millis() + BUTTON_DEBOUNCE;
-  dataRedSwitch = LOW;
-}
-
-// setup for the BLE functionality (code almost directly originating from the Random Nerd Tutorial about the subject, see sources)
-void setupBLE() {
-  // Create the BLE Device
-  BLEDevice::init("ESP32-E-Jorden");
-
-  // Create the BLE Server
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
-
-  // Create the BLE Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  // Create a BLE Characteristic
-  pSensorCharacteristic = pService->createCharacteristic(
-                      SENSOR_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_READ   |
-                      BLECharacteristic::PROPERTY_WRITE  |
-                      BLECharacteristic::PROPERTY_NOTIFY |
-                      BLECharacteristic::PROPERTY_INDICATE
-                    );
-
-  // Create the Cooler button Characteristic
-  pCoolerCharacteristic = pService->createCharacteristic(
-                      COOLER_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_WRITE
-                    );
-
-  // Register the callback for the Cooler button characteristic
-  pCoolerCharacteristic->setCallbacks(new CoolerCharacteristicCallbacks());
-
-  // Create the Deep Sleep button Characteristic
-  pDeepSleepCharacteristic = pService->createCharacteristic(
-                      DEEP_SLEEP_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_WRITE
-                    );
-
-  // Create the Measurement button Characteristic
-  pMeasureCharacteristic = pService->createCharacteristic(
-                      MEASURE_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_WRITE
-                    );
-
-  // Register the callback for the measure button characteristic
-  pMeasureCharacteristic->setCallbacks(new MeasureCharacteristicCallbacks());
-
-  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
-  // Create a BLE Descriptor
-  pSensorCharacteristic->addDescriptor(new BLE2902());
-  pCoolerCharacteristic->addDescriptor(new BLE2902());
-  pMeasureCharacteristic->addDescriptor(new BLE2902());
-
-  // Start the service
-  pService->start();
-
-  // Start advertising
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
-  BLEDevice::startAdvertising();
-  Serial.println("Waiting a client connection to notify...");
-}
-
-void disconnectBLE(boolean delayFunction) {
-  // if function to give the bluetooth stack the chance to get things ready
-  if (delayFunction == LOW) {
-    Serial.println("Device disconnected.");
-    disconnectedDelayTimerBLE = millis() + DISCONNECTED_BLE_DELAY;
-  }
-  else {
-    pServer->startAdvertising(); // restart advertising
-    Serial.println("Start advertising");
-    oldDeviceConnected = deviceConnected;
-    disconnectedSwitchBLE = LOW;
-  }
-}
-
-void connectBLE() {
-  // do stuff here on connecting
-  oldDeviceConnected = deviceConnected;
-  Serial.println("Device Connected");
   dataRedSwitch = LOW;
 }
 
@@ -376,6 +216,7 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   char message[len + 1];
   memcpy(message, payload, len);
   message[len] = '\0';   // Now message is a proper string
+  Serial.println(message);
 
   if (strcmp(topic, MQTT_SUB_COOLER) == 0) {
     mqttCoolerButton(message);
@@ -387,12 +228,16 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 
 void mqttCoolerButton(char *payload) {
   if (strcmp(payload, "ON") == 0) {
+    Serial.println("ON");
     manualOverrideCooler = 1;
+    cooling = HIGH;
   }
   else if (strcmp(payload, "OFF") == 0) {
+    Serial.println("OFF");
     manualOverrideCooler = 2;
   }
   else if (strcmp(payload, "AUTO") == 0) {
+    Serial.println("AUTO");
     manualOverrideCooler = 3;
   }
 }
@@ -495,11 +340,6 @@ void setup() {
   // Start up the sensor library
   sensors.begin(); 
 
-  // activeer de BlueTooth functionaliteit
-  setupBLE();
-
-  disconnectedSwitchBLE = LOW;
-
   // WiFi
   wifiConnect();
 
@@ -520,7 +360,7 @@ void loop() {
   // logica for controling the ventilator
   if (cooling == HIGH) {
     displayTimer = millis() + DISPLAY_INTERVAL;
-    if (manualOverrideCooler == 1 || (tempHigh == HIGH && ventilator == LOW)) {
+    if ((manualOverrideCooler == 1 || tempHigh == HIGH) && ventilator == LOW) {
       activateCooler();
     }
     else if (tempHigh == LOW || manualOverrideCooler == 2) {
@@ -537,21 +377,5 @@ void loop() {
   }
   else if (digitalRead(BUTTON) == HIGH) {
     button();
-  }
-
-  // BLE
-    // disconnecting
-  if (!deviceConnected && oldDeviceConnected) {
-    if (disconnectedSwitchBLE == LOW) {
-      disconnectedSwitchBLE = HIGH;
-      disconnectBLE(LOW);
-    }
-    else if (currentMillis >= disconnectedDelayTimerBLE) {
-      disconnectBLE(HIGH);
-    }
-  }
-    // connecting
-  if (deviceConnected && !oldDeviceConnected) {
-    connectBLE();
   }
 }
