@@ -12,6 +12,7 @@ const int DISCONNECTED_BLE_DELAY = 500;
 // WiFi
 const int WIFI_CONNECT_ATTEMPS = 5;  // Amount of attemps to connect to available WiFi network
 const int WIFI_CONNECT_DELAY = 500;   // Time between connection Attemps
+const char* WIFI_HOST_NAME = "ESP32-Jorden";
 
 // MQTT
 const int MQTT_RECONNECT_TIMER = 2000;
@@ -24,11 +25,10 @@ const int MQTT_RECONNECT_TIMER = 2000;
 // Deep Sleep
 const boolean DEEP_SLEEP_DEFAULT_PERMISSION = LOW;
 
-const String DEEP_SLEEP_WAKE_UP_START = "STARTUP";
-const String DEEP_SLEEP_WAKE_UP_TIME = "DEEP SLEEP TIMER";
-const String DEEP_SLEEP_WAKE_UP_PANIC_BUTTON = "DEEP SLEEP BUTTON";
-const String DEEP_SLEEP_WAKE_UP_UNDEFINED = "DEEP SLEEP NOT DEFINED";
-
+const byte DEEP_SLEEP_WAKE_UP_START = 1;
+const byte DEEP_SLEEP_WAKE_UP_TIME = 2;
+const byte DEEP_SLEEP_WAKE_UP_PANIC_BUTTON = 3;
+const byte DEEP_SLEEP_WAKE_UP_UNDEFINED = 4;
 
 /* DEBUG */
 const boolean DEBUG_SCREEN = HIGH;

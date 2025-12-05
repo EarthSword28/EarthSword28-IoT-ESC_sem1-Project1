@@ -1,6 +1,7 @@
 #ifndef FUNCTION_DECLARATIONS_H
 #define FUNCTION_DECLARATIONS_H
 
+#include <WiFi.h>
 // MQTT libraries
 extern "C" {
 	#include "freertos/FreeRTOS.h"
@@ -41,5 +42,7 @@ void mqttCoolerButton(char *payload);
 void mqttPublish(const char* topic_PL, String payload_PL, uint8_t qos_PL = 1, bool retain_PL = true);
 void connectToMqtt();
 void mqttSetup(int mqttReconectTimer_PL);
+// WiFi
+void wifiConnect();
 
 #endif

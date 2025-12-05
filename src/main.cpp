@@ -9,7 +9,7 @@
 
   randomnerdtutorials MQTT (05/12/2025): https://randomnerdtutorials.com/esp32-mqtt-publish-bme680-arduino/
   async MQTT client API reference (05/12/2025): https://github.com/marvinroger/async-mqtt-client/blob/develop/docs/2.-API-reference.md
-  ChatGPT voor het oplossen van een compile error door config.h en security.h meerdere keren te includen (05/12/2025): https://chatgpt.com/share/6933024b-8cd8-800c-9ebf-42aab106238a
+  ChatGPT voor het oplossen van een compile error door config.h en security.h meerdere keren te includen en voor function declaraties (05/12/2025): https://chatgpt.com/share/6933024b-8cd8-800c-9ebf-42aab106238a
 */
 
 #include <Arduino.h>
@@ -19,8 +19,6 @@
 #include <config.h>
 #include <security.h>
 #include <functionDeclarations.h>
-
-#include <wifiPersonalLibrary.h>
 
 // WiFi
 #include <WiFi.h>
@@ -54,7 +52,7 @@ RTC_DATA_ATTR int bootCount = 0;
 
 boolean deepSleepPermission;        // will deep sleep be activated after a while
 boolean dataRedSwitch;              // boolean for tracking if the sensor has been read out yet
-String deepSleepWakeUpReason = "";  // the reason the ESP woke up
+byte deepSleepWakeUpReason = 0;  // the reason the ESP woke up
 
 // Define used Pins
 #define ONE_WIRE_BUS 4  // temperatuur sensor
@@ -555,6 +553,48 @@ void mqttSetup(int mqttReconectTimer_PL) {
   connectToMqtt();
 }
 
+// Connect to a known WiFi network
+void wifiConnect() {
+  WiFi.mode(WIFI_STA);
+  int networks = WiFi.scanNetworks();
+  if (networks > 0) {
+    for (int n = 0; n < networks && WiFi.status() != WL_CONNECTED; n++) {
+      String ssid = WiFi.SSID(n);
+      for (int i = 0; i < KNOWN_WIFI_AMOUNT; i++) {
+        if (ssid == KNOWN_WIFI_SSIDs[i]) {
+          // if hostname, set hostname
+          if (WIFI_HOST_NAME != "") {
+            WiFi.setHostname(WIFI_HOST_NAME);
+          }
+          // connect to WiFi
+          String password = KNOWN_WIFI_PASSWORDs[i];
+          int connectAttemps = 0;
+          WiFi.begin(ssid, password);
+          Serial.print("connecting to: ");
+          Serial.print(ssid);
+          while (WiFi.status() != WL_CONNECTED && connectAttemps < WIFI_CONNECT_ATTEMPS) {
+            connectAttemps++;
+            delay(WIFI_CONNECT_DELAY);
+            Serial.print(".");
+          }
+          if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\nConnected to WiFi!");
+            Serial.println(WiFi.localIP());
+            break;
+          }
+          else {
+            Serial.println("\nConnection Failed");
+            continue;
+          }
+        }
+      }
+    }
+  }
+  else {
+    Serial.println("No networks found");
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -591,8 +631,7 @@ void setup() {
   disconnectedSwitchBLE = LOW;
 
   // WiFi
-  wifiInit(KNOWN_WIFI_AMOUNT, KNOWN_WIFI_SSIDs, KNOWN_WIFI_PASSWORDs, WIFI_CONNECT_ATTEMPS, WIFI_CONNECT_DELAY);
-  wifiConnect(WIFI_HOST_NAME);
+  wifiConnect();
 
   // MQTT
   mqttSetup(MQTT_RECONNECT_TIMER);
