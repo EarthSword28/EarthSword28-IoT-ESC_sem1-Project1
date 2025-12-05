@@ -29,12 +29,6 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-// deep sleep problemen oplossen
-#include <esp_system.h>
-#include <esp_sleep.h>
-
-#include <driver/rtc_io.h>
-
 // MQTT libraries
 extern "C" {
 	#include "freertos/FreeRTOS.h"
@@ -42,17 +36,7 @@ extern "C" {
 }
 #include <AsyncMqttClient.h>
 
-#define BUTTON_PIN_BITMASK(GPIO) (1ULL << GPIO) // 2 ^ GPIO_NUMBER in hex
-#define WAKEUP_GPIO GPIO_NUM_25                 // The button can get the ESP out of Deep Sleep
-
-#define uS_TO_mS_FACTOR 1000              /* Conversion factor for micro seconds to milli seconds */
-#define TIME_TO_SLEEP MEASURE_INTERVAL    /* Time ESP32 will go to sleep (in seconds) */
-
-RTC_DATA_ATTR int bootCount = 0;
-
-boolean deepSleepPermission;        // will deep sleep be activated after a while
 boolean dataRedSwitch;              // boolean for tracking if the sensor has been read out yet
-byte deepSleepWakeUpReason = 0;  // the reason the ESP woke up
 
 // Define used Pins
 #define ONE_WIRE_BUS 4  // temperatuur sensor
@@ -142,28 +126,6 @@ class CoolerCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-  // read the characteristics from the Deep Sleep Status on the web app off when they get sent
-class DeepSleepCharacteristicCallbacks : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* pDeepSleepCharacteristic) {
-    // de volgende 2 lijnen code zijn aangepast naar de code op canvas om het probleem met de originel code op te lossen
-    std::string deepSleepValue  = pDeepSleepCharacteristic->getValue(); 
-    String value = String(deepSleepValue.c_str());
-
-    if (value.length() > 0) {
-      Serial.print("Characteristic event, written: ");
-      Serial.println(static_cast<int>(value[0])); // Print the integer value
-
-      int receivedValue = static_cast<int>(value[0]);
-      if (receivedValue == 1) {
-        deepSleepPermission = HIGH;
-      } 
-      else {
-        deepSleepPermission = LOW;
-      }
-    }
-  }
-};
-
   // execute a measurement when this is requested via the web app
 class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pMeasureCharacteristic) {
@@ -171,96 +133,10 @@ class MeasureCharacteristicCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-/*
-Method to print the reason by which ESP32
-has been awaken from sleep
-*/
-void get_wakeup_reason() {
-  esp_sleep_wakeup_cause_t wakeup_reason;
-
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
-    Serial.println("Wakeup caused by external signal using RTC_IO");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_PANIC_BUTTON;
-  }
-  else if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT1) {
-    Serial.println("Wakeup caused by external signal using RTC_CNTL");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_UNDEFINED;
-  }
-  else if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER) {
-    Serial.println("Wakeup caused by timer");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_TIME;
-  }
-  else if (wakeup_reason == ESP_SLEEP_WAKEUP_TOUCHPAD) {
-    Serial.println("Wakeup caused by touchpad");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_UNDEFINED;
-  }
-  else if (wakeup_reason == ESP_SLEEP_WAKEUP_ULP) {
-    Serial.println("Wakeup caused by ULP program");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_UNDEFINED;
-  }
-  else if (bootCount == 1) {
-    Serial.println("Startup");
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_START;
-  }
-  else {
-    Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
-    deepSleepWakeUpReason = DEEP_SLEEP_WAKE_UP_UNDEFINED;
-  }
-}
-
-void activate_deep_sleep() {
-  Serial.println("Preparing to sleep");
-
-  sleepTimer = MEASURE_INTERVAL;
-  Serial.print("Going to sleep now for: ");
-  Serial.println(sleepTimer);
-  esp_sleep_enable_timer_wakeup(sleepTimer * uS_TO_mS_FACTOR);
-  Serial.flush();
-  delay(200);
-  esp_deep_sleep_start();
-  Serial.println("This will never be printed");
-}
-
-void configureDeepSleep() {
-  Serial.println("Booting...");
-
-  esp_reset_reason_t reset_reason = esp_reset_reason();
-  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  //Print the wakeup reason for ESP32
-  get_wakeup_reason();
-
-  Serial.print("Reset reason: ");
-  Serial.println((int)reset_reason);
-
-  Serial.print("Wakeup reason: ");
-  Serial.println((int)wakeup_reason);
-
-  Serial.print("Boot count (before): ");
-  Serial.println(bootCount);
-
-  ++bootCount;
-  Serial.print("Boot count (after increment): ");
-  Serial.println(bootCount);
-  
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
-
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKEUP_GPIO, 1); // 1 = High, 0 = Low
-  // Configure pullup/downs via RTCIO to tie wakeup pins to inactive level during deepsleep.
-  // EXT0 resides in the same power domain (RTC_PERIPH) as the RTC IO pullup/downs.
-  // No need to keep that power domain explicitly, unlike EXT1.
-  rtc_gpio_pullup_dis(WAKEUP_GPIO);
-  rtc_gpio_pulldown_en(WAKEUP_GPIO);
-}
-
 // print the data on the debug screen
 void printData(float valueTemp, float realTemp) {
   if (DEBUG_SCREEN == HIGH) {
-    Serial.print("bootCount: ");
-    Serial.print(bootCount);
-    Serial.print(" | Temperature: ");
+    Serial.print("Temperature: ");
     Serial.print(valueTemp);
 
     if (MOCK_SWITCH == HIGH) {
@@ -395,9 +271,6 @@ void setupBLE() {
                       BLECharacteristic::PROPERTY_WRITE
                     );
 
-  // Register the callback for the Cooler button characteristic
-  pDeepSleepCharacteristic->setCallbacks(new DeepSleepCharacteristicCallbacks());
-
   // Create the Measurement button Characteristic
   pMeasureCharacteristic = pService->createCharacteristic(
                       MEASURE_CHARACTERISTIC_UUID,
@@ -411,7 +284,6 @@ void setupBLE() {
   // Create a BLE Descriptor
   pSensorCharacteristic->addDescriptor(new BLE2902());
   pCoolerCharacteristic->addDescriptor(new BLE2902());
-  pDeepSleepCharacteristic->addDescriptor(new BLE2902());
   pMeasureCharacteristic->addDescriptor(new BLE2902());
 
   // Start the service
@@ -607,7 +479,6 @@ void setup() {
   digitalWrite(RELAY_MODULE, HIGH);
 
   temperature = -100.00;
-  deepSleepPermission = DEEP_SLEEP_DEFAULT_PERMISSION;
   ventilator = LOW;
   cooling = LOW;
   tempHigh = LOW;
@@ -620,7 +491,6 @@ void setup() {
   setLed(0, 0, 0);
   
   delay(1000); // Take some time to open up the Serial Monitor
-  configureDeepSleep();
 
   // Start up the sensor library
   sensors.begin(); 
@@ -659,9 +529,6 @@ void loop() {
     if (currentMillis >= measureTimer) {
       dataRedSwitch = LOW;
     }
-  }
-  else if (deepSleepPermission == HIGH && currentMillis >= displayTimer) {
-    activate_deep_sleep();
   }
 
   // logica for the Button input

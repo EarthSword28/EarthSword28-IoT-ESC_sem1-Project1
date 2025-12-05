@@ -23,10 +23,6 @@ void activateCooler();
 void deactivateCooler();
 void checkTemperatureStatus(float temp);
 void button();
-// deep sleep
-void get_wakeup_reason();
-void activate_deep_sleep();
-void configureDeepSleep();
 // BlueTooth
 void setupBLE();
 void disconnectBLE(boolean delayFunction);

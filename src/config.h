@@ -22,14 +22,6 @@ const int MQTT_RECONNECT_TIMER = 2000;
 #define MQTT_SUB_COOLER "esp/input/cooler"
 #define MQTT_SUB_MEASURE "esp/input/measure"
 
-// Deep Sleep
-const boolean DEEP_SLEEP_DEFAULT_PERMISSION = LOW;
-
-const byte DEEP_SLEEP_WAKE_UP_START = 1;
-const byte DEEP_SLEEP_WAKE_UP_TIME = 2;
-const byte DEEP_SLEEP_WAKE_UP_PANIC_BUTTON = 3;
-const byte DEEP_SLEEP_WAKE_UP_UNDEFINED = 4;
-
 /* DEBUG */
 const boolean DEBUG_SCREEN = HIGH;
 const boolean MOCK_SWITCH = LOW;
