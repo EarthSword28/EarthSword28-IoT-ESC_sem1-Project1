@@ -10,7 +10,9 @@ const int DISCONNECTED_BLE_DELAY = 500;
 const int WIFI_CONNECT_ATTEMPS = 5;  // Amount of attemps to connect to available WiFi network
 const int WIFI_CONNECT_DELAY = 500;   // Time between connection Attemps
 
-// Deep Sleep mogelijkheden
+// Deep Sleep
+const boolean DEEP_SLEEP_DEFAULT_PERMISSION = LOW;
+
 const String DEEP_SLEEP_WAKE_UP_START = "STARTUP";
 const String DEEP_SLEEP_WAKE_UP_TIME = "DEEP SLEEP TIMER";
 const String DEEP_SLEEP_WAKE_UP_PANIC_BUTTON = "DEEP SLEEP BUTTON";

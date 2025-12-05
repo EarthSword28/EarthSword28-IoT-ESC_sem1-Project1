@@ -442,7 +442,7 @@ void setup() {
   digitalWrite(RELAY_MODULE, HIGH);
   Serial.begin(115200);
   temperature = -100.00;
-  deepSleepPermission = LOW;
+  deepSleepPermission = DEEP_SLEEP_DEFAULT_PERMISSION;
   ventilator = LOW;
   cooling = LOW;
   tempHigh = LOW;
