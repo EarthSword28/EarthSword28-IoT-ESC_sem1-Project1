@@ -482,6 +482,8 @@ void setup() {
   wifiConnect(WIFI_HOST_NAME);
 
   // MQTT
+  mqttInit(MQTT_LISTEN_COUNT, MQTT_SUB_COOLER, MQTT_SUB_MEASURE);
+  mqttSetup(MQTT_RECONNECT_TIMER, MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASSWORD);
 }
 
 void loop() {
