@@ -18,9 +18,9 @@
 
 #include <config.h>
 #include <security.h>
+#include <functionDeclarations.h>
 
 #include <wifiPersonalLibrary.h>
-#include <mqttPersonalLibrary.h>
 
 // WiFi
 #include <WiFi.h>
@@ -101,6 +101,10 @@ uint32_t value = 0;
 
 unsigned long disconnectedDelayTimerBLE = 0;
 boolean disconnectedSwitchBLE;
+
+// MQTT
+AsyncMqttClient mqttClient;
+TimerHandle_t mqttReconnectTimer;
 
 // CLASSES
   // Device connection and disconnection
@@ -254,7 +258,7 @@ void configureDeepSleep() {
 }
 
 // print the data on the debug screen
-void printData(float valueTemp, float realTemp = 0.0) {
+void printData(float valueTemp, float realTemp) {
   if (DEBUG_SCREEN == HIGH) {
     Serial.print("bootCount: ");
     Serial.print(bootCount);
@@ -272,7 +276,7 @@ void printData(float valueTemp, float realTemp = 0.0) {
 }
 
 // send the data to the web app
-void sendData(float valueTemp, float realTemp = 0.0) {
+void sendData(float valueTemp, float realTemp) {
   String tempString = String(valueTemp);
   if (MOCK_SWITCH == HIGH) {
     tempString = "Mock temperature: " + tempString + "°C | Real Temperature: " + String(realTemp);
@@ -445,6 +449,72 @@ void connectBLE() {
   dataRedSwitch = LOW;
 }
 
+// MQTT functions
+void onMqttConnect(bool sessionPresent) {
+  Serial.println("Connected to MQTT.");
+  Serial.print("Session present: ");
+  Serial.println(sessionPresent);
+  
+  mqttClient.subscribe(MQTT_SUB_COOLER, 1);
+  mqttClient.subscribe(MQTT_SUB_MEASURE, 1);
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
+  Serial.println("Disconnected from MQTT.");
+  if (WiFi.isConnected()) {
+    xTimerStart(mqttReconnectTimer, 0);
+  }
+}
+
+void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
+  Serial.println("Subscribe acknowledged.");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+  Serial.print("  qos: ");
+  Serial.println(qos);
+}
+
+void onMqttUnsubscribe(uint16_t packetId) {
+  Serial.println("Unsubscribe acknowledged.");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+}
+
+void onMqttPublish(uint16_t packetId) {
+  Serial.print("Publish acknowledged.");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+}
+
+void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  Serial.println("Publish received.");
+  Serial.print("  topic: ");
+  Serial.println(topic);
+  Serial.print("  qos: ");
+  Serial.println(properties.qos);
+  Serial.print("  dup: ");
+  Serial.println(properties.dup);
+  Serial.print("  retain: ");
+  Serial.println(properties.retain);
+  Serial.print("  len: ");
+  Serial.println(len);
+  Serial.print("  index: ");
+  Serial.println(index);
+  Serial.print("  total: ");
+  Serial.println(total);
+
+  char message[len + 1];
+  memcpy(message, payload, len);
+  message[len] = '\0';   // Now message is a proper string
+
+  if (strcmp(topic, MQTT_SUB_COOLER) == 0) {
+    mqttCoolerButton(message);
+  }
+  else if (strcmp(topic, MQTT_SUB_MEASURE) == 0) {
+    dataRedSwitch = LOW;
+  }
+}
+
 void mqttCoolerButton(char *payload) {
   if (strcmp(payload, "ON") == 0) {
     manualOverrideCooler = 1;
@@ -457,11 +527,32 @@ void mqttCoolerButton(char *payload) {
   }
 }
 
-void mqttEventHandler(int eventcode, char *eventMessage) {
-  if (eventcode == 1) {
-    mqttCoolerButton(eventMessage);
-  }
-  mqttEventCode = 0;
+void mqttPublish(const char* topic_PL, String payload_PL, uint8_t qos_PL, bool retain_PL) {
+  // Publish an MQTT message on topic esp/output/button
+  uint16_t packetIdPub = mqttClient.publish(topic_PL, qos_PL, retain_PL, String(payload_PL).c_str());
+  Serial.printf("Publishing on topic %s at QoS 1, packetId: %i", topic_PL, packetIdPub);
+  Serial.printf("Message: %.2f \n", payload_PL);
+}
+
+void connectToMqtt() {
+  Serial.println("Connecting to MQTT...");
+  mqttClient.connect();
+}
+
+void mqttSetup(int mqttReconectTimer_PL) {
+  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(mqttReconectTimer_PL), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
+  
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onDisconnect(onMqttDisconnect);
+  mqttClient.onSubscribe(onMqttSubscribe);
+  mqttClient.onUnsubscribe(onMqttUnsubscribe);
+  mqttClient.onMessage(onMqttMessage);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  // If your broker requires authentication (username and password), set them below
+  mqttClient.setCredentials(MQTT_USER, MQTT_PASSWORD);
+
+  connectToMqtt();
 }
 
 void setup() {
@@ -556,9 +647,5 @@ void loop() {
     // connecting
   if (deviceConnected && !oldDeviceConnected) {
     connectBLE();
-  }
-
-  if (mqttEventCode != 0) {
-    mqttEventHandler(mqttEventCode, mqttEventMessage);
   }
 }

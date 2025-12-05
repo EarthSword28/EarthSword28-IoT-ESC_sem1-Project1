@@ -2,6 +2,8 @@
   BRONNEN:
   ArduinoDocs, refresher listed strings (23/10/2025): https://docs.arduino.cc/language-reference/en/variables/data-types/string/
 */
+#ifndef WIFI_PERSONAL_LIBRARY_H
+#define WIFI_PERSONAL_LIBRARY_H
 
 #include <WiFi.h>
 
@@ -139,3 +141,5 @@ void onDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
       break;
   }
 } */
+
+#endif
