@@ -10,6 +10,9 @@ const int DISCONNECTED_BLE_DELAY = 500;
 const int WIFI_CONNECT_ATTEMPS = 5;  // Amount of attemps to connect to available WiFi network
 const int WIFI_CONNECT_DELAY = 500;   // Time between connection Attemps
 
+// MQTT
+const int MQTT_RECONNECT_TIMER = 2000;
+
 // Deep Sleep
 const boolean DEEP_SLEEP_DEFAULT_PERMISSION = LOW;
 

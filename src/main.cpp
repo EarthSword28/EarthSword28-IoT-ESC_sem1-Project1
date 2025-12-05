@@ -6,6 +6,9 @@
   web applicatie met Random Nerd Tutorial (09/10/2025): https://randomnerdtutorials.com/esp32-web-bluetooth/
   JavaScript voor de Web BLE Application (11/10/2025): https://www.w3schools.com/js/default.asp 
   information about classes in C++ (11/10/2025): https://www.w3schools.com/cpp/cpp_class_methods.asp
+
+  randomnerdtutorials MQTT (05/12/2025): https://randomnerdtutorials.com/esp32-mqtt-publish-bme680-arduino/
+  async MQTT client API reference (05/12/2025): https://github.com/marvinroger/async-mqtt-client/blob/develop/docs/2.-API-reference.md
 */
 
 #include <Arduino.h>
@@ -16,6 +19,7 @@
 #include <security.h>
 
 #include <wifiPersonalLibrary.h>
+#include <mqttPersonalLibrary.h>
 
 // WiFi
 #include <WiFi.h>
@@ -31,6 +35,13 @@
 #include <esp_sleep.h>
 
 #include <driver/rtc_io.h>
+
+// MQTT libraries
+extern "C" {
+	#include "freertos/FreeRTOS.h"
+	#include "freertos/timers.h"
+}
+#include <AsyncMqttClient.h>
 
 #define BUTTON_PIN_BITMASK(GPIO) (1ULL << GPIO) // 2 ^ GPIO_NUMBER in hex
 #define WAKEUP_GPIO GPIO_NUM_25                 // The button can get the ESP out of Deep Sleep
@@ -432,15 +443,16 @@ void connectBLE() {
 }
 
 void setup() {
+  Serial.begin(115200);
+
   pinMode(ONE_WIRE_BUS, INPUT);
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(RELAY_MODULE, OUTPUT);
-
   digitalWrite(RELAY_MODULE, HIGH);
-  Serial.begin(115200);
+
   temperature = -100.00;
   deepSleepPermission = DEEP_SLEEP_DEFAULT_PERMISSION;
   ventilator = LOW;
@@ -468,6 +480,8 @@ void setup() {
   // WiFi
   wifiInit(KNOWN_WIFI_AMOUNT, KNOWN_WIFI_SSIDs, KNOWN_WIFI_PASSWORDs, WIFI_CONNECT_ATTEMPS, WIFI_CONNECT_DELAY);
   wifiConnect(WIFI_HOST_NAME);
+
+  // MQTT
 }
 
 void loop() {
