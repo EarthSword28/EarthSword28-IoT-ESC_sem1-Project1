@@ -1,3 +1,6 @@
+#ifndef SECURITY_EXAMPLE_H
+#define SECURITY_EXAMPLE_H
+
 #include <WString.h>  // no idea why but for some reason it needs it here
 
 // WiFi
@@ -14,3 +17,5 @@ const char* WIFI_HOST_NAME = "ESP32-User";
 #define MQTT_PORT 1883
 #define MQTT_USER "mqtt user"
 #define MQTT_PASSWORD "mqtt password"
+
+#endif

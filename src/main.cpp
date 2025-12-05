@@ -9,6 +9,7 @@
 
   randomnerdtutorials MQTT (05/12/2025): https://randomnerdtutorials.com/esp32-mqtt-publish-bme680-arduino/
   async MQTT client API reference (05/12/2025): https://github.com/marvinroger/async-mqtt-client/blob/develop/docs/2.-API-reference.md
+  ChatGPT voor het oplossen van een compile error door config.h en security.h meerdere keren te includen (05/12/2025): https://chatgpt.com/share/6933024b-8cd8-800c-9ebf-42aab106238a
 */
 
 #include <Arduino.h>
@@ -460,6 +461,7 @@ void mqttEventHandler(int eventcode, char *eventMessage) {
   if (eventcode == 1) {
     mqttCoolerButton(eventMessage);
   }
+  mqttEventCode = 0;
 }
 
 void setup() {
@@ -502,8 +504,7 @@ void setup() {
   wifiConnect(WIFI_HOST_NAME);
 
   // MQTT
-  mqttInit(MQTT_LISTEN_COUNT, MQTT_SUB_COOLER, MQTT_SUB_MEASURE);
-  mqttSetup(MQTT_RECONNECT_TIMER, MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASSWORD);
+  mqttSetup(MQTT_RECONNECT_TIMER);
 }
 
 void loop() {

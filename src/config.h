@@ -1,3 +1,6 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
 const float MIN_TEMPERATURE = 20.00;
 const float MAX_TEMPERATURE = 25.00;
 
@@ -14,7 +17,6 @@ const int WIFI_CONNECT_DELAY = 500;   // Time between connection Attemps
 const int MQTT_RECONNECT_TIMER = 2000;
 
   // MQTT Topics
-const int MQTT_LISTEN_COUNT = 2;
 #define MQTT_PUB_TEMP "esp/output/temp"
 #define MQTT_SUB_COOLER "esp/input/cooler"
 #define MQTT_SUB_MEASURE "esp/input/measure"
@@ -39,3 +41,5 @@ const float MOCK_TEMPERATURE = 20.00;
 #define COOLER_CHARACTERISTIC_UUID "689dffc1-9faa-4139-9004-e47b914b78ed"
 #define DEEP_SLEEP_CHARACTERISTIC_UUID "1a2b1de3-a861-4415-9ce4-be5a5fbf4bc7"
 #define MEASURE_CHARACTERISTIC_UUID "8f6e0141-d448-4bf1-8c04-f4ce063ba865"
+
+#endif

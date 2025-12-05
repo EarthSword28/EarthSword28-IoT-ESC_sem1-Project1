@@ -5,57 +5,34 @@ extern "C" {
 }
 #include <AsyncMqttClient.h>
 
+#include <config.h>
+#include <security.h>
+
 AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
 
-int mqttListenCount_PL = 0;                                               // the amount of MQTT topics to listen to
-char *mqttListenTopics_PL[10] = {"", "", "", "", "", "", "", "", "", ""};      // the MQTT topocs to listen to
-
 int mqttEventCode = 0;
-char* mqttEventMessage = "";
-
-void mqttInit(int mqttListenAmounts_i_PL, char *Listen_i_PL_1 = "", char *Listen_i_PL_2 = "", char *Listen_i_PL_3 = "", char *Listen_i_PL_4 = "", char *Listen_i_PL_5 = "", char *Listen_i_PL_6 = "", char *Listen_i_PL_7 = "", char *Listen_i_PL_8 = "", char *Listen_i_PL_9 = "", char *Listen_i_PL_10 = "") {
-  mqttListenCount_PL = mqttListenAmounts_i_PL;
-  char *mqttListenTopics_i_PL[10] = {Listen_i_PL_1, Listen_i_PL_2, Listen_i_PL_3, Listen_i_PL_4, Listen_i_PL_5, Listen_i_PL_6, Listen_i_PL_7, Listen_i_PL_8, Listen_i_PL_9, Listen_i_PL_10};
-  char *mqttListenTopics_PL[10] = mqttListenTopics_i_PL[10];
-}
-
-void mqttSetup(int mqttReconectTimer_PL, char *mqttHost_PL, char* mqttPort_PL, char *mqttUser_PL = "", char *mqttPassword_PL = "") {
-  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(mqttReconectTimer_PL), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
-  
-  mqttClient.onConnect(onMqttConnect);
-  mqttClient.onDisconnect(onMqttDisconnect);
-  mqttClient.onSubscribe(onMqttSubscribe);
-  mqttClient.onUnsubscribe(onMqttUnsubscribe);
-  mqttClient.onMessage(onMqttMessage);
-  mqttClient.onPublish(onMqttPublish);
-  mqttClient.setServer(mqttHost_PL, mqttPort_PL);
-  // If your broker requires authentication (username and password), set them below
-  if (mqttUser_PL != "" && mqttPassword_PL != "") {
-    mqttClient.setCredentials(mqttUser_PL, mqttPassword_PL);
-  }
-
-  connectToMqtt();
-}
+char* mqttEventMessage;
 
 void handleReceivedMQTT(char* topic_PL, char* payload_PL, size_t len_PL) {
   char message[len_PL + 1];
   memcpy(message, payload_PL, len_PL);
-  message[len] = '\0';   // Now message is a proper string
+  message[len_PL] = '\0';   // Now message is a proper string
 
-  for (int i = 0; i < mqttListenCount_PL && i < 10; i++) {
-    if (strcmp(topic_PL, mqttListenTopics_PL[i]) == 0) {
-      mqttEventCode = i+1;
-      mqttEventMessage = message;
-      break;
-    }
+  if (strcmp(topic_PL, MQTT_SUB_COOLER) == 0) {
+    mqttEventCode = 1;
+    mqttEventMessage = message;
+  }
+  else if (strcmp(topic_PL, MQTT_SUB_MEASURE) == 0) {
+    mqttEventCode = 2;
+    mqttEventMessage = message;
   }
 }
 
 void mqttPublish(const char* topic_PL, String payload_PL, uint8_t qos_PL = 1, bool retain_PL = true){
   // Publish an MQTT message on topic esp/output/button
-  uint16_t packetIdPub2 = mqttClient.publish(topic_PL, qos_PL, retain_PL, String(payload_PL).c_str());
-  Serial.printf("Publishing on topic %s at QoS 1, packetId: %i", topic_PL, packetIdPub2);
+  uint16_t packetIdPub = mqttClient.publish(topic_PL, qos_PL, retain_PL, String(payload_PL).c_str());
+  Serial.printf("Publishing on topic %s at QoS 1, packetId: %i", topic_PL, packetIdPub);
   Serial.printf("Message: %.2f \n", payload_PL);
 }
 
@@ -69,11 +46,8 @@ void onMqttConnect(bool sessionPresent) {
   Serial.print("Session present: ");
   Serial.println(sessionPresent);
   
-  if (mqttListenCount_PL > 0) {
-    for (int i = 0; i < mqttListenCount_PL && i < 10; i++) {
-      mqttClient.subscribe(mqttListenTopics_PL[i], 1);
-    }
-  }
+  mqttClient.subscribe(MQTT_SUB_COOLER, 1);
+  mqttClient.subscribe(MQTT_SUB_MEASURE, 1);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
@@ -121,4 +95,20 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   Serial.println(total);
 
   handleReceivedMQTT(topic, payload, len);
+}
+
+void mqttSetup(int mqttReconectTimer_PL) {
+  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(mqttReconectTimer_PL), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
+  
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onDisconnect(onMqttDisconnect);
+  mqttClient.onSubscribe(onMqttSubscribe);
+  mqttClient.onUnsubscribe(onMqttUnsubscribe);
+  mqttClient.onMessage(onMqttMessage);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  // If your broker requires authentication (username and password), set them below
+  mqttClient.setCredentials(MQTT_USER, MQTT_PASSWORD);
+
+  connectToMqtt();
 }
