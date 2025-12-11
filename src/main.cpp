@@ -6,6 +6,7 @@
   web applicatie met Random Nerd Tutorial (09/10/2025): https://randomnerdtutorials.com/esp32-web-bluetooth/
   JavaScript voor de Web BLE Application (11/10/2025): https://www.w3schools.com/js/default.asp 
   information about classes in C++ (11/10/2025): https://www.w3schools.com/cpp/cpp_class_methods.asp
+  ChatGPT voor het oplossen van een compile error door config.h en security.h meerdere keren te includen en voor function declaraties, dit was meer van toepassing in een andere versie van dit project (05/12/2025): https://chatgpt.com/share/6933024b-8cd8-800c-9ebf-42aab106238a
 */
 
 #include <Arduino.h>
@@ -13,12 +14,7 @@
 #include <DallasTemperature.h>
 
 #include <config.h>
-#include <security.h>
-
-#include <wifiConnect.h>
-
-// WiFi
-#include <WiFi.h>
+#include <functionDeclarations.h>
 
 // Web applicatie libraries
 #include <BLEDevice.h>
@@ -241,7 +237,7 @@ void configureDeepSleep() {
 }
 
 // prinde de data op het debug scherm
-void printData(float valueTemp, float realTemp = 0.0) {
+void printData(float valueTemp, float realTemp) {
   if (DEBUG_SCREEN == HIGH) {
     Serial.print("bootCount: ");
     Serial.print(bootCount);
@@ -259,7 +255,7 @@ void printData(float valueTemp, float realTemp = 0.0) {
 }
 
 // stuur de data door naar de web app
-void sendData(float valueTemp, float realTemp = 0.0) {
+void sendData(float valueTemp, float realTemp) {
   String tempString = String(valueTemp);
   if (MOCK_SWITCH == HIGH) {
     tempString = "Mock temperature: " + tempString + "°C | Real Temperature: " + String(realTemp);
